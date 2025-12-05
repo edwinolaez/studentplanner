@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Task, Settings } from '../types';
 import { STORAGE_KEYS } from '../constants';
 
-const SAMPLE_TASKS[] = [
+const SAMPLE_TASKS: Task[] = [
   {
     id: '1',
     title: 'Complete Mobile App Assignment',
