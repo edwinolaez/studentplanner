@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import EmptyState from '../components/EmptyState';
 import TaskCard from '../components/TaskCard';
@@ -62,7 +62,11 @@ export default function TaskListScreen({ tasks, toggleTaskCompletion }: TaskList
           </View>
         ) : (
           tasksToDisplay.map((task) => (
-            <TaskCard key={task.id} task={task} onToggleComplete={toggleTaskCompletion} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              onToggleComplete={toggleTaskCompletion}
+            />
           ))
         )}
       </ScrollView>

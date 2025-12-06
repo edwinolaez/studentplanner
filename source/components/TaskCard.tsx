@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Task } from '../types';
@@ -27,10 +26,12 @@ export default function TaskCard({ task, onToggleComplete }: TaskCardProps) {
       <View style={styles.taskMeta}>
         <Text style={styles.taskDate}>📅 Due: {task.dueDate}</Text>
         <Text style={styles.taskTime}>🕐 {task.dueTime}</Text>
+        <View style={styles.taskActions}>
         <CustomCheckbox
           checked={task.completed}
           onPress={() => onToggleComplete(task.id)}
         />
+        </View>
       </View>
     </View>
   );
@@ -86,5 +87,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     flex: 1,
+  },
+  taskActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });

@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import { Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import BottomTabNavigator from './source/navigation/BottomTabNavigator';
 import AddTaskScreen from './source/screens/AddTaskScreen';
 import CalendarScreen from './source/screens/CalendarScreen';
@@ -8,11 +8,18 @@ import SettingsScreen from './source/screens/SettingsScreen';
 import TaskListScreen from './source/screens/TaskListScreen';
 import { COLORS } from './source/styles/colors';
 import { FormData, Screen, Settings, Task } from './source/types';
-import { loadSettings, loadTasks, savedTasks, saveSettings } from './source/utils/storage';
+import {
+  getTasksFromDB,
+  saveTasksToDB,
+} from './source/utils/storage';
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('tasks');
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isInitialLoadRef = useRef(true);
+  const loadDataCalledRef = useRef(false);
   const [settings, setSettings] = useState<Settings>({
     notificationsEnabled: true,
     soundEnabled: true,
@@ -27,30 +34,56 @@ export default function App() {
     reminder: '',
   });
 
+
+
   useEffect(() => {
-    loadData();
+    // Only call loadData once on initial mount
+    if (!loadDataCalledRef.current) {
+      loadDataCalledRef.current = true;
+      loadData();
+    }
   }, []);
 
-  useEffect(() => {
-    if (tasks.length > 0) {
-      savedTasks(tasks);
-    }
-  }, [tasks]);
-
-  useEffect(() => {
-    saveSettings(settings);
-  }, [settings]);
-
   const loadData = async () => {
-    const loadedTasks = await loadTasks();
-    const loadedSettings = await loadSettings();
+    try {
+      const loadedTasks = await getTasksFromDB();
 
-    setTasks(loadedTasks);
-    setSettings(loadedSettings);
+      // Only load tasks on initial load - never refresh/reload after that until save
+      setTasks((currentTasks) => {
+
+        if (isInitialLoadRef.current) {
+          isInitialLoadRef.current = false;
+          setHasUnsavedChanges(false); 
+          return loadedTasks;
+        }
+
+        return currentTasks.length > 0 ? currentTasks : loadedTasks;
+      });
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+      // On error, preserve existing tasks - never clear them
+      setTasks((currentTasks) => currentTasks);
+    }
   };
+  
+  const handleAddTask = (newTask: Omit<Task, 'id'>) => {
 
-  const handleAddTask = (newTask: Task) => {
-    setTasks([...tasks, newTask]);
+    if (!newTask.title || !newTask.dueDate || !newTask.dueTime || !newTask.priority) {
+      console.error('Invalid task data - missing required fields');
+      return;
+    }
+
+    const taskId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    const taskWithId: Task = { ...newTask, id: taskId };
+    
+    setTasks((currentTasks) => {
+
+      const updatedTasks = [...(currentTasks || []), taskWithId];
+      return updatedTasks;
+    });
+    
+    setHasUnsavedChanges(true);
     setFormData({
       title: '',
       description: '',
@@ -62,20 +95,66 @@ export default function App() {
   };
 
   const toggleTaskCompletion = (taskId: string) => {
-    setTasks (
-      tasks.map((task) =>
-        task.id === taskId ? {...task, completed: !task.completed} : task)
-    );
+
+    
+    // Update local state only
+    setTasks((currentTasks) => {
+      const task = currentTasks.find((t) => t.id === taskId);
+      if (task) {
+        const newCompletedStatus = !task.completed;
+        setHasUnsavedChanges(true);
+        return currentTasks.map((t) =>
+          t.id === taskId ? { ...t, completed: newCompletedStatus } : t
+        );
+      }
+      return currentTasks;
+    });
   };
 
   const handleClearAllTasks = () => {
+
     setTasks([]);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleClearCompletedTasks = () => {
+
+    
+    setTasks((currentTasks) => {
+      const hasCompleted = currentTasks.some((t) => t.completed);
+      if (hasCompleted) {
+        setHasUnsavedChanges(true);
+      }
+      return currentTasks.filter((t) => !t.completed);
+    });
+  };
+
+  const handleSaveAllTasks = async () => {
+    setIsSaving(true);
+    try {
+      console.log(`Starting save: ${tasks.length} tasks to save`);
+      await saveTasksToDB(tasks);
+      console.log('Tasks saved successfully');
+      setHasUnsavedChanges(false);
+      Alert.alert('Success', 'All tasks have been saved to the database!');
+      
+    } catch (error) {
+      console.error('Error saving to database:', error);
+      Alert.alert('Error', `Failed to save to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderScreen = () => {
     switch (activeScreen) {
       case 'tasks':
-        return <TaskListScreen tasks={tasks} toggleTaskCompletion={toggleTaskCompletion} />;
+        return (
+          <TaskListScreen
+            tasks={tasks}
+            toggleTaskCompletion={toggleTaskCompletion}
+          />
+        );
       case 'calendar':
         return <CalendarScreen tasks={tasks} />;
       case 'add':
@@ -91,10 +170,19 @@ export default function App() {
           <SettingsScreen
             settings={settings}
             setSettings={setSettings}
-            handleClearAllTasks={handleClearAllTasks}/>
-      );
+            handleClearCompletedTasks={handleClearCompletedTasks}
+            handleSaveAllTasks={handleSaveAllTasks}
+            hasUnsavedChanges={hasUnsavedChanges}
+            isSaving={isSaving}
+          />
+        );
     default:
-      return <TaskListScreen tasks={tasks} toggleTaskCompletion={toggleTaskCompletion} />;
+      return (
+        <TaskListScreen
+          tasks={tasks}
+          toggleTaskCompletion={toggleTaskCompletion}
+        />
+      );
     }
   };
 

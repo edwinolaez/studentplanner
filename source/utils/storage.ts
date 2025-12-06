@@ -1,86 +1,71 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Task, Settings } from '../types';
-import { STORAGE_KEYS } from '../constants';
+import { addDoc, collection, deleteDoc, doc, getDocs, query } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { Task } from '../types';
 
-const SAMPLE_TASKS: Task[] = [
-  {
-    id: '1',
-    title: 'Complete Mobile App Assignment',
-    description: 'Finish Lab 5',
-    dueDate: '2025-12-02',
-    dueTime: '23:59',
-    priority: 'high',
-    completed: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    title: 'Complete Web Dev project',
-    description: 'Finish Phase 2',
-    dueDate: '2025-12-03',
-    dueTime: '23:59',
-    priority: 'high',
-    completed: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    title: 'Prepare for presentation for pre-Capstone',
-    description: 'Finish Canva',
-    dueDate: '2025-12-03',
-    dueTime: '23:59',  
-    priority: 'high',
-    completed: false,
-    createdAt: new Date().toISOString(),
-  },
-];
 
-export const loadTasks = async (): Promise<Task[]> => {
+const DEFAULT_USER_ID = 'VbW5sejndvTyP111OA1TZvsXcXX2';
+const TASKS_COLLECTION = 'tasks';
+
+
+export const saveTasksToDB = async (tasks: Task[]) => {
+  // console.log('Saving tasks to database ------------------------------');
+  const colRef = collection(db, TASKS_COLLECTION);
+
+  // Delete all existing tasks
+  // console.log('delet tasks from database ------------------------------',colRef);
+
+
+  const tasksQuery = query(colRef);
+  const querySnapshot = await getDocs(tasksQuery);
+
   try {
-    const savedTasks = await AsyncStorage.getItem(STORAGE_KEYS.TASKS)
-    if (savedTasks) {
-      return JSON.parse(savedTasks);
-  }
-  return SAMPLE_TASKS;
-} catch (error) {
-  console.error('Error loading tasks:',error);
-  return SAMPLE_TASKS;
-}
-};
-
-export const savedTasks = async (tasks: Task[]): Promise<void> => {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+    const tasksQuery = query(colRef);
+    const querySnapshot = await getDocs(tasksQuery);
+    const deletePromises = querySnapshot.docs.map((postDoc) =>
+      deleteDoc(doc(db, TASKS_COLLECTION, postDoc.id))
+    );
+    await Promise.all(deletePromises);
   } catch (error) {
-    console.error('Error saving tasks:', error);
+    console.log(error);
   }
+  
+
+
+
+  // console.log('save new tasks ------------------------------');
+
+  try {
+    const colRef = collection(db, TASKS_COLLECTION);
+    const addPromises = tasks.map((task) => 
+      addDoc(colRef, task)
+    );
+    await Promise.all(addPromises);
+  } catch (error) {
+    console.log(error);
+  }
+  
+
+
+
+
 };
 
-export const loadSettings = async (): Promise<Settings> => {
-  try {
-    const savedSettings = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
-    if (savedSettings) {
-      return JSON.parse(savedSettings);
-  }
-  return {
-    notificationsEnabled: true,
-    soundEnabled: true,
-    vibrationEnabled: true,
-  };
-} catch (error) {
-  console.error('Error loading settings:', console.error);
-  return { 
-    notificationsEnabled: true,
-    soundEnabled: true,
-    vibrationEnabled: true,
-    };
-  }
-};
+export const getTasksFromDB = async () => {
 
-export const saveSettings = async (settings: Settings): Promise<void> => {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-} catch (error) {
-  console.error('Error saving settings:', error);
-  }
-};
+  const colRef = collection(db, TASKS_COLLECTION);
+
+  const tasksQuery = query(colRef);
+
+  const querySnapshot = await getDocs(tasksQuery);
+
+
+  const task: any[] = [];
+
+  querySnapshot.forEach((doc) => {
+    task.push({ id: doc.id, ...doc.data() });
+  });
+
+  // console.log('completed get tasks from database ------------------------------',task);
+  return task;
+}
+
