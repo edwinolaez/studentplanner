@@ -7,16 +7,16 @@ export function useAuth() {
     const [loading, setLoading] = useState(true);
     
     useEffect(() => {
-        // Auto sign in with default credentials
-        const autoSignIn = async () => {
-            try {
-                await signInWithEmailAndPassword(auth, "test@gmail.com", "password");
-            } catch (error) {
-                console.error("Error auto signing in:", error);
-            }
-        };
+        // // Auto sign in with default credentials
+        // const autoSignIn = async () => {
+        //     try {
+        //         await signInWithEmailAndPassword(auth, "test@gmail.com", "password");
+        //     } catch (error) {
+        //         console.error("Error auto signing in:", error);
+        //     }
+        // };
         
-        autoSignIn();
+        // autoSignIn();
         
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setUser(user);
