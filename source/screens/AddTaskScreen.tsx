@@ -283,7 +283,10 @@ export default function AddTaskScreen({
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    padding: 20,
+    paddingTop: 20,
+    paddingRight: 20,
+    paddingLeft: 20,
+    paddingBottom: 20,
   },
   formGroup: {
     marginBottom: 20,

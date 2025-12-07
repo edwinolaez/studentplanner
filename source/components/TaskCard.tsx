@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Task } from '../types';
 import CustomCheckbox from './CustomCheckbox';
@@ -28,7 +28,7 @@ export default function TaskCard({ task, onToggleComplete }: TaskCardProps) {
         <Text style={styles.taskTime}>🕐 {task.dueTime}</Text>
         <View style={styles.taskActions}>
         <CustomCheckbox
-          checked={task.completed}
+          checked={task.completed ?? false}
           onPress={() => onToggleComplete(task.id)}
         />
         </View>

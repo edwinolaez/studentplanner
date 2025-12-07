@@ -7,8 +7,8 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity
 } from "react-native";
+
 import { auth } from "./lib/firebase";
 import BottomTabNavigator from "./source/navigation/BottomTabNavigator";
 import AddTaskScreen from "./source/screens/AddTaskScreen";
@@ -16,7 +16,7 @@ import CalendarScreen from "./source/screens/CalendarScreen";
 import SettingsScreen from "./source/screens/SettingsScreen";
 import TaskListScreen from "./source/screens/TaskListScreen";
 import { COLORS } from "./source/styles/colors";
-import { FormData, Screen, Settings, Task } from "./source/types";
+import { FormData, Screen, Task } from "./source/types";
 import { getTasksFromDB, saveTasksToDB } from "./source/utils/storage";
 import { useAuth } from "./hooks/useAuth";
 import LoginScreen from "./source/screens/LoginScreen";
@@ -28,14 +28,11 @@ export default function App() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const isInitialLoadRef = useRef(true);
-  const loadDataCalledRef = useRef(false);
+
   const [authScreen, setAuthScreen] = useState<"login" | "signup">("login");
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [settings, setSettings] = useState<Settings>({
-    notificationsEnabled: true,
-    soundEnabled: true,
-    vibrationEnabled: true,
-  });
+
+  // FORM DATA
   const [formData, setFormData] = useState<FormData>({
     title: "",
     description: "",
@@ -44,77 +41,65 @@ export default function App() {
     priority: "",
     reminder: "",
   });
+
   const { user, loading } = useAuth();
 
+  // Load tasks when user logs in
   useEffect(() => {
-    // Only call loadData once on initial mount
-    if (!loadDataCalledRef.current) {
-      loadDataCalledRef.current = true;
-      loadData();
+    if (user) {
+      isInitialLoadRef.current = true;
+      loadDataForCurrentUser();
+    } else {
+      setTasks([]);
+      setHasUnsavedChanges(false);
+      setTasksLoading(false);
+      isInitialLoadRef.current = true;
     }
-  }, []);
+  }, [user]);
 
-  // const loadData = async () => {
-  //   try {
-  //     const loadedTasks = await getTasksFromDB();
+  const loadDataForCurrentUser = async () => {
+    setTasksLoading(true);
 
-  //     // Only load tasks on initial load - never refresh/reload after that until save
-  //     setTasks((currentTasks) => {
-  //       if (isInitialLoadRef.current) {
-  //         isInitialLoadRef.current = false;
-  //         setHasUnsavedChanges(false);
-  //         return loadedTasks;
-  //       }
-
-  //       return currentTasks.length > 0 ? currentTasks : loadedTasks;
-  //     });
-  //   } catch (error) {
-  //     console.error("Error loading data:", error);
-  //     // On error, preserve existing tasks - never clear them
-  //     setTasks((currentTasks) => currentTasks);
-  //   }
-  // };
-  const loadData = async () => {
     try {
-      const loadedTasks = await getTasksFromDB();
+      if (isInitialLoadRef.current) {
+        const loadedTasks = await getTasksFromDB();
 
-      setTasks((currentTasks) => {
-        if (isInitialLoadRef.current) {
-          isInitialLoadRef.current = false;
-          setHasUnsavedChanges(false);
-          return loadedTasks;
-        }
-        return currentTasks.length > 0 ? currentTasks : loadedTasks;
-      });
-    } catch (error) {
-      console.error("Error loading data:", error);
-      setTasks((currentTasks) => currentTasks);
+        setTasks(
+          (loadedTasks || []).map((task) => ({
+            ...task,
+            completed: task.completed ?? false,
+          }))
+        );
+
+        setHasUnsavedChanges(false);
+        isInitialLoadRef.current = false;
+      }
+    } catch (err) {
+      console.error("Error loading tasks:", err);
     } finally {
       setTasksLoading(false);
     }
   };
 
   const handleAddTask = (newTask: Omit<Task, "id">) => {
-    if (
-      !newTask.title ||
-      !newTask.dueDate ||
-      !newTask.dueTime ||
-      !newTask.priority
-    ) {
-      console.error("Invalid task data - missing required fields");
+    if (!newTask.title || !newTask.dueDate || !newTask.dueTime || !newTask.priority) {
+      console.error("Invalid task data");
       return;
     }
 
-    const taskId =
-      Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    const taskWithId: Task = { ...newTask, id: taskId };
+    const taskId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
-    setTasks((currentTasks) => {
-      const updatedTasks = [...(currentTasks || []), taskWithId];
-      return updatedTasks;
-    });
+    const taskWithId: Task = {
+      ...newTask,
+      id: taskId,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
 
+    setTasks((current) => [...current, taskWithId]);
     setHasUnsavedChanges(true);
+
+    // Reset form
     setFormData({
       title: "",
       description: "",
@@ -126,51 +111,30 @@ export default function App() {
   };
 
   const toggleTaskCompletion = (taskId: string) => {
-    // Update local state only
-    setTasks((currentTasks) => {
-      const task = currentTasks.find((t) => t.id === taskId);
-      if (task) {
-        const newCompletedStatus = !task.completed;
-        setHasUnsavedChanges(true);
-        return currentTasks.map((t) =>
-          t.id === taskId ? { ...t, completed: newCompletedStatus } : t
-        );
-      }
-      return currentTasks;
-    });
-  };
+    setTasks((currentTasks) =>
+      currentTasks.map((t) =>
+        t.id === taskId ? { ...t, completed: !t.completed } : t
+      )
+    );
 
-  const handleClearAllTasks = () => {
-    setTasks([]);
     setHasUnsavedChanges(true);
   };
 
   const handleClearCompletedTasks = () => {
-    setTasks((currentTasks) => {
-      const hasCompleted = currentTasks.some((t) => t.completed);
-      if (hasCompleted) {
-        setHasUnsavedChanges(true);
-      }
-      return currentTasks.filter((t) => !t.completed);
-    });
+    setTasks((currentTasks) => currentTasks.filter((t) => !t.completed));
+    setHasUnsavedChanges(true);
   };
 
   const handleSaveAllTasks = async () => {
     setIsSaving(true);
+
     try {
-      console.log(`Starting save: ${tasks.length} tasks to save`);
       await saveTasksToDB(tasks);
-      console.log("Tasks saved successfully");
       setHasUnsavedChanges(false);
-      Alert.alert("Success", "All tasks have been saved to the database!");
-    } catch (error) {
-      console.error("Error saving to database:", error);
-      Alert.alert(
-        "Error",
-        `Failed to save to database: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      Alert.alert("Success", "All tasks have been saved!");
+    } catch (err) {
+      console.error("Save error:", err);
+      Alert.alert("Error", "Failed to save tasks");
     } finally {
       setIsSaving(false);
     }
@@ -179,12 +143,7 @@ export default function App() {
   const renderScreen = () => {
     switch (activeScreen) {
       case "tasks":
-        return (
-          <TaskListScreen
-            tasks={tasks}
-            toggleTaskCompletion={toggleTaskCompletion}
-          />
-        );
+        return <TaskListScreen tasks={tasks} toggleTaskCompletion={toggleTaskCompletion} />;
       case "calendar":
         return <CalendarScreen tasks={tasks} />;
       case "add":
@@ -199,8 +158,6 @@ export default function App() {
       case "settings":
         return (
           <SettingsScreen
-            settings={settings}
-            setSettings={setSettings}
             handleClearCompletedTasks={handleClearCompletedTasks}
             handleSaveAllTasks={handleSaveAllTasks}
             hasUnsavedChanges={hasUnsavedChanges}
@@ -208,38 +165,28 @@ export default function App() {
           />
         );
       default:
-        return (
-          <TaskListScreen
-            tasks={tasks}
-            toggleTaskCompletion={toggleTaskCompletion}
-          />
-        );
+        return null;
     }
   };
 
-  // If auth is still loading, show nothing for now
+  // AUTH LOADING
   if (loading) {
     return (
-      <SafeAreaView
-        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-      >
-        <Text style={{ fontSize: 18 }}>Loading...</Text>
+      <SafeAreaView style={styles.center}>
+        <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
   }
 
-  // Wait for tasks to load (prevents flicker)
   if (tasksLoading) {
     return (
-      <SafeAreaView
-        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-      >
-        <Text style={{ fontSize: 18 }}>Loading your tasks...</Text>
+      <SafeAreaView style={styles.center}>
+        <Text style={styles.loadingText}>Loading tasks...</Text>
       </SafeAreaView>
     );
   }
 
-  // If no user → show login / signup flow
+  // LOGIN / SIGNUP FLOW
   if (!user) {
     return authScreen === "login" ? (
       <LoginScreen navigation={{ navigate: () => setAuthScreen("signup") }} />
@@ -254,33 +201,20 @@ export default function App() {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🎓 Study Planner</Text>
-        <Text style={styles.headerSubtitle}>
-          Plan everything and get Things Done!!
-        </Text>
-
-        <TouchableOpacity
-          onPress={() => auth.signOut()}
-          style={{ marginTop: 10 }}
-        >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>Logout</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerSubtitle}>Plan everything and get things done!</Text>
       </View>
 
       <View style={styles.content}>{renderScreen()}</View>
 
-      <BottomTabNavigator
-        activeScreen={activeScreen}
-        setActiveScreen={setActiveScreen}
-      />
+      <BottomTabNavigator activeScreen={activeScreen} setActiveScreen={setActiveScreen} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    borderBlockColor: COLORS.background,
-  },
+  container: { flex: 1 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { fontSize: 18 },
   header: {
     backgroundColor: COLORS.primary,
     padding: 20,
@@ -290,15 +224,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#ffffff",
+    color: "#fff",
   },
   headerSubtitle: {
     fontSize: 14,
-    color: "#ffffff",
+    color: "#fff",
     opacity: 0.9,
     marginTop: 5,
   },
-  content: {
-    flex: 1,
-  },
+  content: { flex: 1 },
 });

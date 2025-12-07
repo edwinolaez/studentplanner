@@ -1,19 +1,17 @@
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { COLORS } from '../styles/colors';
-import { Settings } from '../types';
+} from "react-native";
+import { COLORS } from "../styles/colors";
+import { auth } from "../../lib/firebase";
 
 interface SettingsScreenProps {
-  settings: Settings;
-  setSettings: (settings: Settings) => void;
   handleClearCompletedTasks: () => void;
   handleSaveAllTasks: () => void;
   hasUnsavedChanges: boolean;
@@ -21,133 +19,97 @@ interface SettingsScreenProps {
 }
 
 export default function SettingsScreen({
-  settings,
-  setSettings,
   handleClearCompletedTasks,
   handleSaveAllTasks,
   hasUnsavedChanges,
   isSaving,
 }: SettingsScreenProps) {
+  const userEmail = auth.currentUser?.email || "Unknown User";
+  const userInitial = userEmail.charAt(0).toUpperCase();
+
   const confirmClearCompletedTasks = () => {
     Alert.alert(
-      'Clear Completed Tasks',
-      'Are you sure you want to delete all completed tasks? This cannot be undone.',
+      "Clear Completed Tasks",
+      "Are you sure you want to delete all completed tasks?",
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear Completed', style: 'destructive', onPress: handleClearCompletedTasks },
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: handleClearCompletedTasks,
+        },
       ]
     );
   };
 
   return (
     <ScrollView style={styles.screenContainer}>
-      <View style={styles.settingsGroup}>
-        <View style={styles.settingsItem}>
-          <View style={styles.settingsItemText}>
-            <Text style={styles.settingsLabel}>Enable Notifications</Text>
-            <Text style={styles.settingsDescription}>Receive reminders for your tasks</Text>
-          </View>
-          <Switch
-            value={settings.notificationsEnabled}
-            onValueChange={(value) => setSettings({ ...settings, notificationsEnabled: value })}
-            trackColor={{ false: '#cbd5e1', true: COLORS.primary }}
-            thumbColor="#ffffff"
-          />
+      {/* PROFILE CARD */}
+      <View style={styles.profileCard}>
+        <View style={styles.avatarCircle}>
+          <Text style={styles.avatarText}>{userInitial}</Text>
         </View>
 
-        <View style={styles.settingsItem}>
-          <View style={styles.settingsItemText}>
-            <Text style={styles.settingsLabel}>Notification Sound</Text>
-            <Text style={styles.settingsDescription}>Play sound for reminders</Text>
-          </View>
-          <Switch
-            value={settings.soundEnabled}
-            onValueChange={(value) => setSettings({ ...settings, soundEnabled: value })}
-            trackColor={{ false: '#cbd5e1', true: COLORS.primary }}
-            thumbColor="#ffffff"
-          />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.profileLabel}>Logged in as</Text>
+          <Text style={styles.profileEmail}>{userEmail}</Text>
         </View>
 
-        <View style={styles.settingsItem}>
-          <View style={styles.settingsItemText}>
-            <Text style={styles.settingsLabel}>Vibration</Text>
-            <Text style={styles.settingsDescription}>Vibrate for reminders</Text>
-          </View>
-          <Switch
-            value={settings.vibrationEnabled}
-            onValueChange={(value) => setSettings({ ...settings, vibrationEnabled: value })}
-            trackColor={{ false: '#cbd5e1', true: COLORS.primary }}
-            thumbColor="#ffffff"
-          />
-        </View>
-      </View>
-
-      <View style={styles.settingsGroup}>
-        <TouchableOpacity style={styles.settingsItem}>
-          <View style={styles.settingsItemText}>
-            <Text style={styles.settingsLabel}>Default Reminder Time</Text>
-            <Text style={styles.settingsDescription}>1 day before due date</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingsItem}>
-          <View style={styles.settingsItemText}>
-            <Text style={styles.settingsLabel}>Theme</Text>
-            <Text style={styles.settingsDescription}>Light mode</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
+        {/* Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => auth.signOut()}
+        >
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.settingsGroup}>
-        <TouchableOpacity style={styles.settingsItem}>
-          <View style={styles.settingsItemText}>
-            <Text style={styles.settingsLabel}>About Study Planner</Text>
-            <Text style={styles.settingsDescription}>Version 1.0</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingsItem}>
-          <View style={styles.settingsItemText}>
-            <Text style={styles.settingsLabel}>Help & Support</Text>
-            <Text style={styles.settingsDescription}>Get help using the app</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.saveButtonContainer}>
+      {/* SAVE ALL TASKS */}
+      <View style={styles.section}>
         <TouchableOpacity
           style={[
-            styles.saveButton, 
-            hasUnsavedChanges && styles.saveButtonActive,
-            isSaving && styles.saveButtonSaving
+            styles.primaryButton,
+            hasUnsavedChanges && styles.primaryButtonActive,
+            isSaving && styles.primaryButtonSaving,
           ]}
           onPress={handleSaveAllTasks}
           disabled={!hasUnsavedChanges || isSaving}
         >
           {isSaving ? (
             <View style={styles.savingContainer}>
-              <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner} />
-              <Text style={styles.saveButtonTextSaving}>Saving to Database...</Text>
+              <ActivityIndicator size="small" color="#fff" />
+              <Text style={styles.primaryButtonTextSaving}>Saving...</Text>
             </View>
           ) : (
-            <Text style={[styles.saveButtonText, !hasUnsavedChanges && styles.saveButtonTextDisabled]}>
-              💾 {hasUnsavedChanges ? 'Save All Tasks to Database' : 'All Tasks Saved'}
+            <Text
+              style={[
+                styles.primaryButtonText,
+                !hasUnsavedChanges && styles.primaryButtonTextDisabled,
+              ]}
+            >
+              💾 {hasUnsavedChanges ? "Save All Tasks" : "All Tasks Saved"}
             </Text>
           )}
         </TouchableOpacity>
+
         {hasUnsavedChanges && !isSaving && (
-          <Text style={styles.unsavedIndicator}>You have unsaved changes</Text>
+          <Text style={styles.unsavedIndicator}>Unsaved changes</Text>
         )}
       </View>
 
-      <View style={styles.dangerButtonsContainer}>
-        <TouchableOpacity style={styles.dangerButton} onPress={confirmClearCompletedTasks}>
-          <Text style={styles.dangerButtonText}>✅ Clear All Completed Tasks</Text>
-      </TouchableOpacity>
+      {/* CLEAR COMPLETED */}
+      <View style={styles.section}>
+        <Pressable
+          onPress={confirmClearCompletedTasks}
+          style={({ pressed }) => [
+            styles.dangerButton,
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <Text selectable={false} style={styles.dangerButtonText}>
+            ❌ Clear All Completed Tasks
+          </Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -158,106 +120,118 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  settingsGroup: {
+
+  /* PROFILE CARD */
+  profileCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: 'hidden',
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 25,
   },
-  settingsItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+
+  avatarCircle: {
+    width: 55,
+    height: 55,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  settingsItemText: {
-    flex: 1,
+
+  avatarText: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "700",
   },
-  settingsLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: COLORS.textPrimary,
-  },
-  settingsDescription: {
+
+  profileLabel: {
+    color: COLORS.textSecondary,
     fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 4,
   },
-  chevron: {
-    fontSize: 24,
-    color: COLORS.textSecondary,
+
+  profileEmail: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 3,
   },
-  saveButtonContainer: {
-    marginTop: 20,
-    marginBottom: 20,
+
+  logoutButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.danger,
+    borderRadius: 10,
   },
-  saveButton: {
+
+  logoutButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+
+  /* SECTIONS */
+  section: {
+    marginBottom: 25,
+  },
+
+  /* SAVE BUTTON */
+  primaryButton: {
     backgroundColor: COLORS.surface,
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 2,
     borderColor: COLORS.border,
   },
-  saveButtonActive: {
+  primaryButtonActive: {
     borderColor: COLORS.success,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: "#eefdf3",
   },
-  saveButtonSaving: {
+  primaryButtonSaving: {
     borderColor: COLORS.primary,
     backgroundColor: COLORS.primary,
-    opacity: 0.8,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.success,
+  },
+  primaryButtonTextSaving: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  primaryButtonTextDisabled: {
+    color: COLORS.textSecondary,
   },
   savingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
-  loadingSpinner: {
-    marginRight: 4,
-  },
-  saveButtonText: {
-    color: COLORS.success,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButtonTextSaving: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButtonTextDisabled: {
-    color: COLORS.textSecondary,
-  },
   unsavedIndicator: {
+    marginTop: 8,
+    textAlign: "center",
     fontSize: 12,
     color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
-    fontStyle: 'italic',
   },
-  dangerButtonsContainer: {
-    gap: 12,
-  },
+
+  /* DANGER BUTTON */
   dangerButton: {
     backgroundColor: COLORS.surface,
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 2,
     borderColor: COLORS.danger,
-  },
-  dangerButtonAll: {
-    marginTop: 0,
   },
   dangerButtonText: {
     color: COLORS.danger,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
