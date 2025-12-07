@@ -1,15 +1,16 @@
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { COLORS } from "../styles/colors";
 import { auth } from "../../lib/firebase";
+import { COLORS } from "../styles/colors";
 
 interface SettingsScreenProps {
   handleClearCompletedTasks: () => void;
@@ -28,6 +29,15 @@ export default function SettingsScreen({
   const userInitial = userEmail.charAt(0).toUpperCase();
 
   const confirmClearCompletedTasks = () => {
+     if (Platform.OS === "web") {
+        // Web fallback (window.confirm)
+        const confirmed = window.confirm(
+          "Are you sure you want to delete all completed tasks?"
+        );
+        if (confirmed) handleClearCompletedTasks();
+        return;
+      }
+
     Alert.alert(
       "Clear Completed Tasks",
       "Are you sure you want to delete all completed tasks?",
