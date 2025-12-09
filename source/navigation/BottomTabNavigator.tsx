@@ -1,4 +1,3 @@
-import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Screen } from '../types';
@@ -36,7 +35,7 @@ export default function BottomTabNavigator({
           <Text style={[styles.navIcon, activeScreen === tab.id && styles.navIconActive]}>
             {tab.icon}
           </Text>
-          <Text style={[styles.navLabel, activeScreen === tabs.id && styles.navLabelActive]}>
+          <Text style={[styles.navLabel, activeScreen === tab.id && styles.navLabelActive]}>
             {tab.label}
           </Text>
         </TouchableOpacity>
